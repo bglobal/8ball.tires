@@ -1,0 +1,580 @@
+openapi: 3.0.3
+info:
+  title: 8Ball Tires Booking API
+  description: API for motorcycle service booking and availability management
+  version: 1.0.0
+  contact:
+    name: 8Ball Tires
+    email: support@8balltires.com
+servers:
+  - url: http://localhost:8000/api
+    description: Development server
+  - url: https://api.8balltires.com
+    description: Production server
+
+paths:
+  /locations:
+    get:
+      summary: Get all active locations
+      description: Retrieve a list of all active service locations
+      tags:
+        - Locations
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Location'
+
+  /location/{id}:
+    get:
+      summary: Get location details with settings
+      description: Retrieve detailed information about a specific location including its operational settings
+      tags:
+        - Locations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Location ID
+          example: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/LocationDetails'
+        '404':
+          description: Location not found or inactive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
+  /services:
+    get:
+      summary: Get all active services
+      description: Retrieve a list of all available services
+      tags:
+        - Services
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Service'
+
+  /availability:
+    get:
+      summary: Get daily availability slots
+      description: Retrieve available time slots for a specific location, service, and date
+      tags:
+        - Availability
+      parameters:
+        - name: location_id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: ID of the location
+          example: 1
+        - name: service_id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: ID of the service
+          example: 1
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Date in YYYY-MM-DD format (defaults to today if not provided)
+          example: "2024-01-15"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AvailabilitySlot'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
+  /blackout/{id}:
+    get:
+      summary: Get blackout dates for a location
+      description: Retrieve all blackout dates for a specific location
+      tags:
+        - Blackouts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Location ID
+          example: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  format: date
+                  example: "2025-10-05"
+                example: ["2025-10-05", "2025-10-11", "2025-12-25"]
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Validation failed"
+                  errors:
+                    type: object
+                    properties:
+                      id:
+                        type: array
+                        items:
+                          type: string
+                        example: ["The selected id is invalid."]
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /bookings:
+    post:
+      summary: Create a new booking
+      description: Book a time slot for a service at a specific location
+      tags:
+        - Bookings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+      responses:
+        '201':
+          description: Booking created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Booking'
+        '409':
+          description: Slot no longer available (race condition)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error or insufficient inventory
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationError'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
+                        example: "Insufficient inventory"
+                      message:
+                        type: string
+                        example: "Some required parts are not available in sufficient quantity for this booking."
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /bookings/{id}:
+    get:
+      summary: Get a specific booking
+      description: Retrieve details of a specific booking by ID
+      tags:
+        - Bookings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Booking ID
+          example: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/BookingDetails'
+        '404':
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    Location:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Downtown Location"
+        timezone:
+          type: string
+          example: "America/New_York"
+
+    LocationDetails:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Downtown Service Center"
+        timezone:
+          type: string
+          example: "America/New_York"
+        is_active:
+          type: boolean
+          example: true
+        settings:
+          type: object
+          nullable: true
+          properties:
+            slot_duration_minutes:
+              type: integer
+              example: 60
+            open_time:
+              type: string
+              format: time
+              example: "08:00"
+            close_time:
+              type: string
+              format: time
+              example: "18:00"
+            is_weekend_open:
+              type: boolean
+              example: true
+            weekend_open_time:
+              type: string
+              format: time
+              example: "09:00"
+            weekend_close_time:
+              type: string
+              format: time
+              example: "17:00"
+            capacity_per_slot:
+              type: integer
+              example: 3
+
+    Service:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "Oil Change"
+        duration_minutes:
+          type: integer
+          example: 60
+        price:
+          type: number
+          format: float
+          example: 75.00
+
+    AvailabilitySlot:
+      type: object
+      properties:
+        slotStart:
+          type: string
+          format: date-time
+          example: "2024-01-15T09:00:00Z"
+        slotEnd:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:00:00Z"
+        seatsLeft:
+          type: integer
+          example: 3
+        inventoryOk:
+          type: boolean
+          example: true
+
+    CreateBookingRequest:
+      type: object
+      required:
+        - location_id
+        - service_id
+        - slot_start_iso
+        - customer
+      properties:
+        location_id:
+          type: integer
+          description: ID of the location
+          example: 1
+        service_id:
+          type: integer
+          description: ID of the service
+          example: 1
+        slot_start_iso:
+          type: string
+          format: date-time
+          description: Start time of the booking slot in ISO 8601 format
+          example: "2024-01-15T09:00:00-05:00"
+        seats:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Number of seats (defaults to 1 if not provided)
+          example: 2
+        customer:
+          type: object
+          required:
+            - name
+            - phone
+            - email
+          properties:
+            name:
+              type: string
+              maxLength: 255
+              description: Customer's full name
+              example: "John Doe"
+            phone:
+              type: string
+              maxLength: 20
+              description: Customer's phone number
+              example: "555-1234"
+            email:
+              type: string
+              format: email
+              maxLength: 255
+              description: Customer's email address
+              example: "john@example.com"
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique booking identifier
+          example: 1
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled, completed]
+          description: Current status of the booking
+          example: "confirmed"
+        slot_start:
+          type: string
+          format: date-time
+          description: Start time of the booking slot in location timezone
+          example: "2024-01-15T10:00:00-05:00"
+        slot_end:
+          type: string
+          format: date-time
+          description: End time of the booking slot in location timezone
+          example: "2024-01-15T11:00:00-05:00"
+        shopify:
+          type: object
+          nullable: true
+          description: Shopify draft order information (if available)
+          properties:
+            draft_order_id:
+              type: integer
+              description: Shopify draft order ID
+              example: 123456789
+            invoice_url:
+              type: string
+              format: uri
+              description: URL to view and pay the invoice
+              example: "https://shop.myshopify.com/admin/draft_orders/123456789"
+            total_price:
+              type: string
+              description: Total price as string (includes currency)
+              example: "75.00"
+            currency_code:
+              type: string
+              description: Currency code
+              example: "USD"
+
+    BookingDetails:
+      allOf:
+        - $ref: '#/components/schemas/Booking'
+        - type: object
+          properties:
+            seats:
+              type: integer
+              example: 2
+            customer:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "John Doe"
+                phone:
+                  type: string
+                  example: "555-1234"
+                email:
+                  type: string
+                  example: "john@example.com"
+            service:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  example: 1
+                title:
+                  type: string
+                  example: "Oil Change"
+                duration_minutes:
+                  type: integer
+                  example: 60
+                price:
+                  type: number
+                  format: float
+                  example: 75.00
+            location:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  example: 1
+                name:
+                  type: string
+                  example: "Downtown Location"
+                timezone:
+                  type: string
+                  example: "America/New_York"
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "Slot no longer available"
+        message:
+          type: string
+          example: "The requested time slot is no longer available"
+
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Validation failed"
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            location_id: ["The location id field is required."]
+            service_id: ["The service id field is required."]
+
+tags:
+  - name: Locations
+    description: Location management
+  - name: Services
+    description: Service management
+  - name: Availability
+    description: Availability and scheduling
+  - name: Blackouts
+    description: Blackout date management
+  - name: Bookings
+    description: Booking management
