@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-     - name: Whitelist GitHub Actions IP
+      - name: Whitelist GitHub Actions IP
         uses: bbharathkumarreddy/aws-whitelist-ip@v1.0
         with:
           security-group-id: sg-0bf39fb30181489f6
@@ -23,7 +23,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-     - name: Copy project files to EC2
+      - name: Copy project files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -47,7 +47,7 @@ jobs:
             php artisan view:cache
             php artisan optimize
 
-        - name: Remove GitHub Actions IP
+      - name: Remove GitHub Actions IP
         uses: bbharathkumarreddy/aws-whitelist-ip@v1.0
         with:
           security-group-id: sg-0bf39fb30181489f6
@@ -56,3 +56,4 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+
