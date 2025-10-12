@@ -1,4 +1,4 @@
-# 🏍️ 8Ball Tires - Motorcycle Tires Service Booking System
+# 🏍️ 8Ball Tires - Motorcycle tires service booking system
 
 <div align="center">
 
