@@ -1,4 +1,4 @@
-# 🏍️ 8Ball Tires - Motorcycle Service Booking System
+# 🏍️ 8Ball Tiees - Motorcycle Tires Service Booking System
 
 <div align="center">
 
