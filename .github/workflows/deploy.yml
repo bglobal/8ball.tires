@@ -46,6 +46,7 @@ jobs:
             php artisan route:cache
             php artisan view:cache
             php artisan optimize
+            php artisan queue:work
 
       - name: Remove GitHub Actions IP
         uses: bbharathkumarreddy/aws-whitelist-ip@v1.0
