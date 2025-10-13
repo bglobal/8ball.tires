@@ -18,9 +18,15 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/framework/*
+/storage/logs/*
 /vendor
 Homestead.json
 Homestead.yaml
 Thumbs.db
 .Dockerfile
 .dockerignore
+npm-debug.log
+yarn-error.log
+/bootstrap/cache/*
+.htaccess
