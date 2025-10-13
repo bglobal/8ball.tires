@@ -15,7 +15,6 @@
 /node_modules
 /public/hot
 /public/storage
-# Note: /public/build is intentionally NOT ignored - Vite build files need to be deployed
 /storage/*.key
 /storage/pail
 /storage/framework/*
