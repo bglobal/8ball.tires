@@ -32,10 +32,6 @@ jobs:
           script: |
             # Change ownership to ubuntu:www-data for write permissions
             sudo chown -R ubuntu:www-data ${{ secrets.DEPLOY_PATH }}
-            
-            # Remove existing files (excluding .env file)
-            sudo find ${{ secrets.DEPLOY_PATH }} -maxdepth 1 -type f ! -name '.env' -delete
-            sudo find ${{ secrets.DEPLOY_PATH }} -maxdepth 1 -type d ! -name '.' ! -name '..' -exec rm -rf {} +
 
       - name: Copy project files to EC2
         uses: appleboy/scp-action@v0.1.7
