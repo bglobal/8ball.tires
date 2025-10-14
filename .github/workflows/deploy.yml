@@ -71,6 +71,9 @@ jobs:
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
             
+            # Keep ubuntu ownership for all operations first
+            sudo chown -R ubuntu:ubuntu .
+            
             # Install dependencies first
             composer install --no-interaction --prefer-dist --optimize-autoloader
             
@@ -82,7 +85,31 @@ jobs:
             mkdir -p storage/logs
             mkdir -p bootstrap/cache
             
-            # Set comprehensive Laravel file permissions
+            # Create storage link and ensure directories exist
+            php artisan storage:link
+            
+            # Clear and cache Laravel configurations
+            php artisan config:clear
+            php artisan cache:clear
+            php artisan view:clear
+            php artisan route:clear
+            
+            # Run Laravel commands
+            # Check if migrations need to be run (safer approach)
+            php artisan migrate:status
+            php artisan migrate --no-interaction
+            
+            # Cache and optimize Laravel
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan optimize
+            
+            # Build frontend assets
+            npm install
+            npm run build
+            
+            # Set comprehensive Laravel file permissions after all operations
             # Storage directory - needs write access for logs, cache, sessions
             sudo chown -R www-data:www-data storage
             sudo chmod -R 775 storage
@@ -106,38 +133,6 @@ jobs:
             # Set permissions for vendor directory (readable by web server)
             sudo chown -R www-data:www-data vendor
             sudo chmod -R 755 vendor
-            
-            # Create storage link and ensure directories exist
-            php artisan storage:link
-            
-            # Clear and cache Laravel configurations
-            php artisan config:clear
-            php artisan cache:clear
-            php artisan view:clear
-            php artisan route:clear
-            
-            # Run Laravel commands
-            # Check if migrations need to be run (safer approach)
-            php artisan migrate:status
-            php artisan migrate --no-interaction
-            
-            # Cache and optimize Laravel
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-            php artisan optimize
-            
-            # Set final permissions after Laravel commands
-            sudo chown -R www-data:www-data storage bootstrap/cache
-            sudo chmod -R 775 storage bootstrap/cache
-            
-            # Build frontend assets (with proper permissions)
-            # Change ownership temporarily for npm operations
-            sudo chown -R ubuntu:ubuntu .
-            npm install
-            npm run build
-            # Change ownership back to www-data after build
-            sudo chown -R www-data:www-data .
             
             # Start queue worker in background
             nohup php artisan queue:work --daemon > /dev/null 2>&1 &
