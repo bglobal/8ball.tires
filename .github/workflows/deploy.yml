@@ -43,6 +43,14 @@ jobs:
           target: ${{ secrets.DEPLOY_PATH }}
           overwrite: true
           rm: false
+          strip_components: 0
+          exclude: |
+            .git
+            .gitattributes
+            README.md
+            .env.example
+            .DS_Store
+            Thumbs.db
 
       - name: Set proper file ownership
         uses: appleboy/ssh-action@v0.1.10
