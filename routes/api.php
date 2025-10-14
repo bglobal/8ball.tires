@@ -27,6 +27,30 @@ Route::get('/blackout/{id}', [App\Http\Controllers\BlackoutController::class, 's
 Route::post('/bookings', [App\Http\Controllers\Api\BookingsController::class, 'store'])->middleware('throttle:5,1');
 Route::get('/bookings/{id}', [App\Http\Controllers\Api\BookingsController::class, 'show']);
 
+// EightBall Proxy Routes for React App (No Database Required)
+Route::prefix('eightball')->middleware('cors')->group(function () {
+    // Locations
+    Route::get('/locations', [App\Http\Controllers\Api\EightballProxyController::class, 'getLocations']);
+    
+    // Service Categories
+    Route::get('/services/categories/location/{id}', [App\Http\Controllers\Api\EightballProxyController::class, 'getServiceCategories']);
+    
+    // Services
+    Route::get('/services/location/{id}', [App\Http\Controllers\Api\EightballProxyController::class, 'getServicesByLocation']);
+    
+    // Agents
+    Route::get('/agents/location/{locationId}/service/{serviceId}', [App\Http\Controllers\Api\EightballProxyController::class, 'getAgentsByLocationAndService']);
+    
+    // Calendar and Availability
+    Route::get('/calendar', [App\Http\Controllers\Api\EightballProxyController::class, 'getCalendarAvailability']);
+    Route::get('/time-slots-auto', [App\Http\Controllers\Api\EightballProxyController::class, 'getTimeSlots']);
+    Route::get('/availability', [App\Http\Controllers\Api\EightballProxyController::class, 'checkAvailability']);
+    
+    // Bookings
+    Route::post('/bookings', [App\Http\Controllers\Api\EightballProxyController::class, 'createBooking'])->middleware('throttle:5,1');
+    Route::get('/bookings/{id}', [App\Http\Controllers\Api\EightballProxyController::class, 'getBooking']);
+});
+
 // API Documentation
 Route::get('/docs', function () {
     return view('api.docs');

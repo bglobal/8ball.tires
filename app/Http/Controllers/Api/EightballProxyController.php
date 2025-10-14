@@ -1,0 +1,281 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+class EightballProxyController extends Controller
+{
+    private $externalApiUrl = 'https://8ball.tires/wp-json/latepoint/v1';
+
+    /**
+     * Get all locations (proxy for /locations)
+     */
+    public function getLocations(): JsonResponse
+    {
+        try {
+            $response = Http::get($this->externalApiUrl . '/locations');
+            
+            if ($response->successful()) {
+                return response()->json($response->json());
+            }
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch locations from external API'
+            ], $response->status());
+        } catch (\Exception $e) {
+            Log::error('Proxy error - getLocations', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch locations',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get service categories by location (proxy for /services/categories/location/{id})
+     */
+    public function getServiceCategories(Request $request, $locationId): JsonResponse
+    {
+        try {
+            $response = Http::get($this->externalApiUrl . "/services/categories/location/{$locationId}");
+            
+            if ($response->successful()) {
+                return response()->json($response->json());
+            }
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch service categories from external API'
+            ], $response->status());
+        } catch (\Exception $e) {
+            Log::error('Proxy error - getServiceCategories', ['error' => $e->getMessage(), 'locationId' => $locationId]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch service categories',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get services by location (proxy for /services/location/{id})
+     */
+    public function getServicesByLocation(Request $request, $locationId): JsonResponse
+    {
+        try {
+            $url = $this->externalApiUrl . "/services/location/{$locationId}";
+            
+            // Add query parameters if present
+            $queryParams = $request->only(['category_id', 'service_ids']);
+            if (!empty($queryParams)) {
+                $url .= '?' . http_build_query($queryParams);
+            }
+            
+            $response = Http::get($url);
+            
+            if ($response->successful()) {
+                return response()->json($response->json());
+            }
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch services from external API'
+            ], $response->status());
+        } catch (\Exception $e) {
+            Log::error('Proxy error - getServicesByLocation', ['error' => $e->getMessage(), 'locationId' => $locationId]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch services',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get agents by location and service (proxy for /agents/location/{id}/service/{id})
+     */
+    public function getAgentsByLocationAndService(Request $request, $locationId, $serviceId): JsonResponse
+    {
+        try {
+            $response = Http::get($this->externalApiUrl . "/agents/location/{$locationId}/service/{$serviceId}");
+            
+            if ($response->successful()) {
+                return response()->json($response->json());
+            }
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch agents from external API'
+            ], $response->status());
+        } catch (\Exception $e) {
+            Log::error('Proxy error - getAgentsByLocationAndService', [
+                'error' => $e->getMessage(), 
+                'locationId' => $locationId, 
+                'serviceId' => $serviceId
+            ]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch agents',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get calendar availability (proxy for /calendar)
+     */
+    public function getCalendarAvailability(Request $request): JsonResponse
+    {
+        try {
+            $queryParams = $request->only([
+                'service_id', 'location_id', 'agent_id', 
+                'date_from', 'date_to', 'total_attendees'
+            ]);
+            
+            $url = $this->externalApiUrl . '/calendar?' . http_build_query($queryParams);
+            $response = Http::get($url);
+            
+            if ($response->successful()) {
+                return response()->json($response->json());
+            }
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch calendar availability from external API'
+            ], $response->status());
+        } catch (\Exception $e) {
+            Log::error('Proxy error - getCalendarAvailability', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch calendar availability',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get time slots for specific date (proxy for /time-slots-auto)
+     */
+    public function getTimeSlots(Request $request): JsonResponse
+    {
+        try {
+            $queryParams = $request->only([
+                'service_id', 'location_id', 'agent_id', 
+                'date', 'total_attendees'
+            ]);
+            
+            $url = $this->externalApiUrl . '/time-slots-auto?' . http_build_query($queryParams);
+            $response = Http::get($url);
+            
+            if ($response->successful()) {
+                return response()->json($response->json());
+            }
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch time slots from external API'
+            ], $response->status());
+        } catch (\Exception $e) {
+            Log::error('Proxy error - getTimeSlots', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch time slots',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Check availability for specific service, agent, and date (proxy for /availability)
+     */
+    public function checkAvailability(Request $request): JsonResponse
+    {
+        try {
+            $queryParams = $request->only([
+                'service_id', 'agent_id', 'location_id', 
+                'date', 'duration'
+            ]);
+            
+            $url = $this->externalApiUrl . '/availability?' . http_build_query($queryParams);
+            $response = Http::get($url);
+            
+            if ($response->successful()) {
+                return response()->json($response->json());
+            }
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to check availability from external API'
+            ], $response->status());
+        } catch (\Exception $e) {
+            Log::error('Proxy error - checkAvailability', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to check availability',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Create a new booking (proxy for /bookings)
+     */
+    public function createBooking(Request $request): JsonResponse
+    {
+        try {
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+                'X-API-Key' => 'lp_n1k6BVf3h7JRyjXkWMSoXi0BBZYRaOLL4QohDPQJ'
+            ])->post($this->externalApiUrl . '/bookings', $request->all());
+            
+            if ($response->successful()) {
+                return response()->json($response->json());
+            }
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to create booking via external API'
+            ], $response->status());
+        } catch (\Exception $e) {
+            Log::error('Proxy error - createBooking', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to create booking',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get a specific booking (proxy for /bookings/{id})
+     */
+    public function getBooking(Request $request, $id): JsonResponse
+    {
+        try {
+            $response = Http::get($this->externalApiUrl . "/bookings/{$id}");
+            
+            if ($response->successful()) {
+                return response()->json($response->json());
+            }
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch booking from external API'
+            ], $response->status());
+        } catch (\Exception $e) {
+            Log::error('Proxy error - getBooking', ['error' => $e->getMessage(), 'bookingId' => $id]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch booking',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+}
