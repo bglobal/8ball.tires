@@ -71,12 +71,6 @@ jobs:
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
             
-            # Install dependencies first
-            composer install --no-interaction --prefer-dist --optimize-autoloader
-            
-            # Create storage link and ensure directories exist
-            php artisan storage:link
-            
             # Keep ubuntu ownership for all operations first
             sudo chown -R ubuntu:ubuntu .
             
@@ -115,6 +109,9 @@ jobs:
             npm install
             npm run build
             
+            # Ensure Composer autoloader is generated before changing ownership
+            composer dump-autoload --optimize
+            
             # Set comprehensive Laravel file permissions after all operations
             # Storage directory - needs write access for logs, cache, sessions
             sudo chown -R www-data:www-data storage
@@ -137,8 +134,12 @@ jobs:
             sudo chmod 644 .env
             
             # Set permissions for vendor directory (readable by web server)
+            # Ensure vendor directory exists and has proper permissions
             sudo chown -R www-data:www-data vendor
             sudo chmod -R 755 vendor
+            
+            # Final verification - ensure no Composer processes are running
+            pkill -f composer || true
             
             # Start queue worker in background
             nohup php artisan queue:work --daemon > /dev/null 2>&1 &
