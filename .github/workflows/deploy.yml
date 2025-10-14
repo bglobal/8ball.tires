@@ -131,6 +131,10 @@ jobs:
             sudo chown -R www-data:www-data storage bootstrap/cache
             sudo chmod -R 775 storage bootstrap/cache
             
+            # Build frontend assets
+            npm install
+            npm run build
+            
             # Start queue worker in background
             nohup php artisan queue:work --daemon > /dev/null 2>&1 &
 
