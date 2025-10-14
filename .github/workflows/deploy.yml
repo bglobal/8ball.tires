@@ -45,7 +45,7 @@ jobs:
           source: "."
           target: ${{ secrets.DEPLOY_PATH }}
           overwrite: true
-          rm: true
+          rm: false
 
       - name: Set proper file ownership
         uses: appleboy/ssh-action@v0.1.10
