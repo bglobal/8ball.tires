@@ -23,6 +23,16 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Prepare deployment directory
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Change ownership to ubuntu:www-data for write permissions
+            sudo chown -R ubuntu:www-data ${{ secrets.DEPLOY_PATH }}
+
       - name: Copy project files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -31,6 +41,26 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "."
           target: ${{ secrets.DEPLOY_PATH }}
+          overwrite: true
+          rm: false
+          strip_components: 0
+          exclude: |
+            .git
+            .gitattributes
+            README.md
+            .env.example
+            .DS_Store
+            Thumbs.db
+
+      - name: Set proper file ownership
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Change ownership to www-data:www-data after copying files
+            sudo chown -R www-data:www-data ${{ secrets.DEPLOY_PATH }}
 
       - name: SSH - Install & Setup Laravel
         uses: appleboy/ssh-action@v0.1.10
@@ -47,27 +77,71 @@ jobs:
             # Create storage link and ensure directories exist
             php artisan storage:link
             
-            # Set proper permissions for Laravel directories
-            sudo chown -R www-data:www-data storage bootstrap/cache
-            sudo chmod -R 775 storage bootstrap/cache
+            # Keep ubuntu ownership for all operations first
+            sudo chown -R ubuntu:ubuntu .
             
-            # Set permissions for public directory (after storage:link creates it)
-            sudo chown -R www-data:www-data public/storage
-            sudo chmod -R 775 public/storage
+            # Install dependencies first
+            composer install --no-interaction --prefer-dist --optimize-autoloader
             
-            # Ensure .env file has proper permissions (commented out as per your preference)
-            # sudo chown www-data:www-data .env
-            # sudo chmod 644 .env
+            # Create necessary Laravel directories if they don't exist
+            mkdir -p storage/app/public
+            mkdir -p storage/framework/cache
+            mkdir -p storage/framework/sessions
+            mkdir -p storage/framework/views
+            mkdir -p storage/logs
+            mkdir -p bootstrap/cache
+            
+            # Create storage link and ensure directories exist
+            php artisan storage:link
+            
+            # Clear and cache Laravel configurations
+            php artisan config:clear
+            php artisan cache:clear
+            php artisan view:clear
+            php artisan route:clear
             
             # Run Laravel commands
-            php artisan migrate
+            # Check if migrations need to be run (safer approach)
+            php artisan migrate:status
+            php artisan migrate --no-interaction
+            
+            # Cache and optimize Laravel
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
             php artisan optimize
             
-            # Start queue worker
-            php artisan queue:work
+            # Build frontend assets
+            npm install
+            npm run build
+            
+            # Set comprehensive Laravel file permissions after all operations
+            # Storage directory - needs write access for logs, cache, sessions
+            sudo chown -R www-data:www-data storage
+            sudo chmod -R 775 storage
+            
+            # Bootstrap cache directory - needs write access for compiled views
+            sudo chown -R www-data:www-data bootstrap/cache
+            sudo chmod -R 775 bootstrap/cache
+            
+            # Public directory - web accessible
+            sudo chown -R www-data:www-data public
+            sudo chmod -R 755 public
+            
+            # Ensure public/storage exists and has proper permissions
+            sudo chown -R www-data:www-data public/storage
+            sudo chmod -R 755 public/storage
+            
+            # Set permissions for .env file (readable by web server)
+            sudo chown www-data:www-data .env
+            sudo chmod 644 .env
+            
+            # Set permissions for vendor directory (readable by web server)
+            sudo chown -R www-data:www-data vendor
+            sudo chmod -R 755 vendor
+            
+            # Start queue worker in background
+            nohup php artisan queue:work --daemon > /dev/null 2>&1 &
 
       - name: Remove GitHub Actions IP
         uses: bbharathkumarreddy/aws-whitelist-ip@v1.0

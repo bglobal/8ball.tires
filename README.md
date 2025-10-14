@@ -21,7 +21,7 @@
 
 ### ✨ Key Features
 
-- **🎯 Real-Time Booking System** - Live availability checking with race condition protection
+- **🎯 Real-Time Booking System** - Live availability checking
 - **📦 Inventory Management** - Shopify-powered real-time stock tracking and validation
 - **🏢 Multi-Location Support** - Manage multiple service centers with individual capacities
 - **📊 Advanced Admin Dashboard** - Filament-powered management interface
