@@ -131,9 +131,13 @@ jobs:
             sudo chown -R www-data:www-data storage bootstrap/cache
             sudo chmod -R 775 storage bootstrap/cache
             
-            # Build frontend assets
+            # Build frontend assets (with proper permissions)
+            # Change ownership temporarily for npm operations
+            sudo chown -R ubuntu:ubuntu .
             npm install
             npm run build
+            # Change ownership back to www-data after build
+            sudo chown -R www-data:www-data .
             
             # Start queue worker in background
             nohup php artisan queue:work --daemon > /dev/null 2>&1 &
