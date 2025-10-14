@@ -41,23 +41,23 @@ jobs:
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
             
+            # Install dependencies first
+            composer install --no-interaction --prefer-dist --optimize-autoloader
+            
+            # Create storage link and ensure directories exist
+            php artisan storage:link
+            
             # Set proper permissions for Laravel directories
             sudo chown -R www-data:www-data storage bootstrap/cache
             sudo chmod -R 775 storage bootstrap/cache
             
-            # Set permissions for public directory (if needed for file uploads)
+            # Set permissions for public directory (after storage:link creates it)
             sudo chown -R www-data:www-data public/storage
             sudo chmod -R 775 public/storage
             
             # Ensure .env file has proper permissions (commented out as per your preference)
             # sudo chown www-data:www-data .env
             # sudo chmod 644 .env
-            
-            # Install dependencies
-            composer install --no-interaction --prefer-dist --optimize-autoloader
-            
-            # Create storage link and ensure directories exist
-            php artisan storage:link
             
             # Run Laravel commands
             php artisan migrate
