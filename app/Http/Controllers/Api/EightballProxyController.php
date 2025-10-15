@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 class EightballProxyController extends Controller
 {
-    private $externalApiUrl = 'https://8ball.tires/wp-json/latepoint/v1';
+    private $externalApiUrl = 'https://8ball.tires/wp-json/v1';
 
     /**
      * Get all locations (proxy for /locations)
@@ -18,12 +18,12 @@ class EightballProxyController extends Controller
     public function getLocations(): JsonResponse
     {
         try {
-            $response = Http::get($this->externalApiUrl . '/locations');
-            
+            $response = Http::get($this->externalApiUrl . '/latepoint/locations');
+
             if ($response->successful()) {
                 return response()->json($response->json());
             }
-            
+
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to fetch locations from external API'
@@ -44,12 +44,12 @@ class EightballProxyController extends Controller
     public function getServiceCategories(Request $request, $locationId): JsonResponse
     {
         try {
-            $response = Http::get($this->externalApiUrl . "/services/categories/location/{$locationId}");
-            
+            $response = Http::get($this->externalApiUrl . "/latepoint/services/categories/location/{$locationId}");
+
             if ($response->successful()) {
                 return response()->json($response->json());
             }
-            
+
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to fetch service categories from external API'
@@ -70,20 +70,20 @@ class EightballProxyController extends Controller
     public function getServicesByLocation(Request $request, $locationId): JsonResponse
     {
         try {
-            $url = $this->externalApiUrl . "/services/location/{$locationId}";
-            
+            $url = $this->externalApiUrl . "/latepoint/services/location/{$locationId}";
+
             // Add query parameters if present
             $queryParams = $request->only(['category_id', 'service_ids']);
             if (!empty($queryParams)) {
                 $url .= '?' . http_build_query($queryParams);
             }
-            
+
             $response = Http::get($url);
-            
+
             if ($response->successful()) {
                 return response()->json($response->json());
             }
-            
+
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to fetch services from external API'
@@ -104,20 +104,20 @@ class EightballProxyController extends Controller
     public function getAgentsByLocationAndService(Request $request, $locationId, $serviceId): JsonResponse
     {
         try {
-            $response = Http::get($this->externalApiUrl . "/agents/location/{$locationId}/service/{$serviceId}");
-            
+            $response = Http::get($this->externalApiUrl . "/latepoint/agents/location/{$locationId}/service/{$serviceId}");
+
             if ($response->successful()) {
                 return response()->json($response->json());
             }
-            
+
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to fetch agents from external API'
             ], $response->status());
         } catch (\Exception $e) {
             Log::error('Proxy error - getAgentsByLocationAndService', [
-                'error' => $e->getMessage(), 
-                'locationId' => $locationId, 
+                'error' => $e->getMessage(),
+                'locationId' => $locationId,
                 'serviceId' => $serviceId
             ]);
             return response()->json([
@@ -135,17 +135,17 @@ class EightballProxyController extends Controller
     {
         try {
             $queryParams = $request->only([
-                'service_id', 'location_id', 'agent_id', 
+                'service_id', 'location_id', 'agent_id',
                 'date_from', 'date_to', 'total_attendees'
             ]);
-            
-            $url = $this->externalApiUrl . '/calendar?' . http_build_query($queryParams);
+
+            $url = $this->externalApiUrl . '/latepoint/calendar?' . http_build_query($queryParams);
             $response = Http::get($url);
-            
+
             if ($response->successful()) {
                 return response()->json($response->json());
             }
-            
+
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to fetch calendar availability from external API'
@@ -167,17 +167,17 @@ class EightballProxyController extends Controller
     {
         try {
             $queryParams = $request->only([
-                'service_id', 'location_id', 'agent_id', 
+                'service_id', 'location_id', 'agent_id',
                 'date', 'total_attendees'
             ]);
-            
-            $url = $this->externalApiUrl . '/time-slots-auto?' . http_build_query($queryParams);
+
+            $url = $this->externalApiUrl . '/latepoint/time-slots-auto?' . http_build_query($queryParams);
             $response = Http::get($url);
-            
+
             if ($response->successful()) {
                 return response()->json($response->json());
             }
-            
+
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to fetch time slots from external API'
@@ -199,17 +199,17 @@ class EightballProxyController extends Controller
     {
         try {
             $queryParams = $request->only([
-                'service_id', 'agent_id', 'location_id', 
+                'service_id', 'agent_id', 'location_id',
                 'date', 'duration'
             ]);
-            
-            $url = $this->externalApiUrl . '/availability?' . http_build_query($queryParams);
+
+            $url = $this->externalApiUrl . '/latepoint/availability?' . http_build_query($queryParams);
             $response = Http::get($url);
-            
+
             if ($response->successful()) {
                 return response()->json($response->json());
             }
-            
+
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to check availability from external API'
@@ -233,12 +233,12 @@ class EightballProxyController extends Controller
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
                 'X-API-Key' => 'lp_n1k6BVf3h7JRyjXkWMSoXi0BBZYRaOLL4QohDPQJ'
-            ])->post($this->externalApiUrl . '/bookings', $request->all());
-            
+            ])->post($this->externalApiUrl . '/latepoint/bookings', $request->all());
+
             if ($response->successful()) {
                 return response()->json($response->json());
             }
-            
+
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to create booking via external API'
@@ -259,12 +259,12 @@ class EightballProxyController extends Controller
     public function getBooking(Request $request, $id): JsonResponse
     {
         try {
-            $response = Http::get($this->externalApiUrl . "/bookings/{$id}");
-            
+            $response = Http::get($this->externalApiUrl . "/latepoint/bookings/{$id}");
+
             if ($response->successful()) {
                 return response()->json($response->json());
             }
-            
+
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to fetch booking from external API'
