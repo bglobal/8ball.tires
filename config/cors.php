@@ -20,6 +20,7 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
+        'http://localhost:3000',
         'http://localhost:3001',
         'http://localhost:3002',
         'https://8balltires.myshopify.com',
