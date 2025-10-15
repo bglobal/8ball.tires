@@ -278,4 +278,66 @@ class EightballProxyController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get location mappings (proxy for /wp-json/v1/location-mappings)
+     */
+    public function getLocationMappings(): JsonResponse
+    {
+        try {
+            // This endpoint uses a different base URL (l/v1 instead of latepoint/v1)
+            $response = Http::get($this->externalApiUrl.'/location-mappings');
+
+            if ($response->successful()) {
+                return response()->json($response->json());
+            }
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch location mappings from external API'
+            ], $response->status());
+        } catch (\Exception $e) {
+            Log::error('Proxy error - getLocationMappings', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch location mappings',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get Shopify services by product type (proxy for /wp-json/v1/shopify-services)
+     */
+    public function getShopifyServicesByProductType(Request $request): JsonResponse
+    {
+        try {
+
+            $url = $this->externalApiUrl.'/shopify-services';
+
+            // Add query parameters if present
+            $queryParams = $request->only(['product_type']);
+            if (!empty($queryParams)) {
+                $url .= '?' . http_build_query($queryParams);
+            }
+
+            $response = Http::get($url);
+
+            if ($response->successful()) {
+                return response()->json($response->json());
+            }
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch services from external API'
+            ], $response->status());
+        } catch (\Exception $e) {
+            Log::error('Proxy error - getShopifyServicesByProductType', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch services',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

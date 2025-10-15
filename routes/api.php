@@ -49,6 +49,12 @@ Route::prefix('eightball')->middleware('cors')->group(function () {
     // Bookings
     Route::post('/bookings', [App\Http\Controllers\Api\EightballProxyController::class, 'createBooking'])->middleware('throttle:5,1');
     Route::get('/bookings/{id}', [App\Http\Controllers\Api\EightballProxyController::class, 'getBooking']);
+    
+    // Location Mappings
+    Route::get('/location-mappings', [App\Http\Controllers\Api\EightballProxyController::class, 'getLocationMappings']);
+    
+    // Shopify Services by Product Type
+    Route::get('/shopify-services', [App\Http\Controllers\Api\EightballProxyController::class, 'getShopifyServicesByProductType']);
 });
 
 // API Documentation
