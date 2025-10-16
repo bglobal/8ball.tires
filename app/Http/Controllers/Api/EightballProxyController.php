@@ -230,10 +230,28 @@ class EightballProxyController extends Controller
     public function createBooking(Request $request): JsonResponse
     {
         try {
+            $url = $this->externalApiUrl . '/latepoint/bookings';
+            // Filter out Shopify-specific fields that the external API doesn't support
+            $allowedFields = [
+                'service_id', 'agent_id', 'location_id', 'start_date', 'start_time',
+                'customer', 'status', 'send_confirmation','product_title', 'product_price', 'product_variant_id',
+                'service_name', 'service_variant_id','service_price'
+            ];
+
+            // Extract Shopify fields for separate processing
+            $shopifyFields = $request->only([
+                'product_title', 'product_price', 'product_variant_id',
+                'service_name', 'service_variant_id'
+            ]);
+
+            $filteredData = $request->only($allowedFields);
+
+
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
                 'X-API-Key' => 'lp_n1k6BVf3h7JRyjXkWMSoXi0BBZYRaOLL4QohDPQJ'
-            ])->post($this->externalApiUrl . '/latepoint/bookings', $request->all());
+            ])->post($url, $filteredData);
+
 
             if ($response->successful()) {
                 return response()->json($response->json());
@@ -241,7 +259,9 @@ class EightballProxyController extends Controller
 
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to create booking via external API'
+                'error' => 'Failed to create booking via external API',
+                'status' => $response->status(),
+                'response' => $response->body()
             ], $response->status());
         } catch (\Exception $e) {
             Log::error('Proxy error - createBooking', ['error' => $e->getMessage()]);
