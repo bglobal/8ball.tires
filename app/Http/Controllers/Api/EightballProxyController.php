@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 class EightballProxyController extends Controller
 {
-    private $externalApiUrl = 'https://8ball.tires/wp-json/v1';
+    private $externalApiUrl = 'http://wp-latepoint.local/index.php/wp-json/v1';
 
     /**
      * Get all locations (proxy for /locations)
@@ -224,34 +224,32 @@ class EightballProxyController extends Controller
         }
     }
 
-    /**
-     * Create a new booking (proxy for /bookings)
-     */
     public function createBooking(Request $request): JsonResponse
     {
         try {
             $url = $this->externalApiUrl . '/latepoint/bookings';
-            // Filter out Shopify-specific fields that the external API doesn't support
+
             $allowedFields = [
                 'service_id', 'agent_id', 'location_id', 'start_date', 'start_time',
-                'customer', 'status', 'send_confirmation','product_title', 'product_price', 'product_variant_id',
-                'service_name', 'service_variant_id','service_price'
+                'customer', 'status', 'send_confirmation',
+                'product_title', 'product_price', 'product_variant_id',
+                'service_name', 'service_variant_id', 'service_price'
             ];
 
-            // Extract Shopify fields for separate processing
-            $shopifyFields = $request->only([
-                'product_title', 'product_price', 'product_variant_id',
-                'service_name', 'service_variant_id'
-            ]);
-
+            // Capture only allowed fields
             $filteredData = $request->only($allowedFields);
+            $filteredData['customer'] = $request->input('customer'); // ensure nested object
 
+            Log::info('Filtered Booking Payload:', $filteredData);
 
             $response = Http::withHeaders([
-                'Content-Type' => 'application/json',
                 'X-API-Key' => 'lp_n1k6BVf3h7JRyjXkWMSoXi0BBZYRaOLL4QohDPQJ'
-            ])->post($url, $filteredData);
+            ])->asJson()->post($url, $filteredData);
 
+            Log::info('External API Response:', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
 
             if ($response->successful()) {
                 return response()->json($response->json());
