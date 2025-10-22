@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 class EightballProxyController extends Controller
 {
-    private $externalApiUrl = 'http://wp-latepoint.local/index.php/wp-json/v1';
+    private $externalApiUrl = 'https://8ball.tires/wp-json/v1';
 
     /**
      * Get all locations (proxy for /locations)
