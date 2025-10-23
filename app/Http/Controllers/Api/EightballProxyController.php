@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 class EightballProxyController extends Controller
 {
+    private const API_KEY = 'lp_n1k6BVf3h7JRyjXkWMSoXi0BBZYRaOLL4QohDPQJrrrrraffdf';
     private $externalApiUrl = 'http://wp-latepoint.local/wp-json/v1';
 
     /**
@@ -243,7 +244,7 @@ class EightballProxyController extends Controller
             Log::info('Filtered Booking Payload:', $filteredData);
 
             $response = Http::withHeaders([
-                'X-API-Key' => 'lp_n1k6BVf3h7JRyjXkWMSoXi0BBZYRaOLL4QohDPQJ'
+                'X-API-Key' => self::API_KEY
             ])->asJson()->post($url, $filteredData);
 
             Log::info('External API Response:', [
