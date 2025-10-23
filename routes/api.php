@@ -30,29 +30,29 @@ Route::get('/bookings/{id}', [App\Http\Controllers\Api\BookingsController::class
 // EightBall Proxy Routes for React App (No Database Required)
 Route::prefix('eightball')->middleware('cors')->group(function () {
     // Locations
-    Route::get('/locations', [App\Http\Controllers\Api\EightballProxyController::class, 'getLocations']);
-    
+    Route::get('/latepoint/locations', [App\Http\Controllers\Api\EightballProxyController::class, 'getLocations']);
+
     // Service Categories
-    Route::get('/services/categories/location/{id}', [App\Http\Controllers\Api\EightballProxyController::class, 'getServiceCategories']);
-    
+    Route::get('/latepoint/services/categories/location/{id}', [App\Http\Controllers\Api\EightballProxyController::class, 'getServiceCategories']);
+
     // Services
-    Route::get('/services/location/{id}', [App\Http\Controllers\Api\EightballProxyController::class, 'getServicesByLocation']);
-    
+    Route::get('/latepoint/services/location/{id}', [App\Http\Controllers\Api\EightballProxyController::class, 'getServicesByLocation']);
+
     // Agents
-    Route::get('/agents/location/{locationId}/service/{serviceId}', [App\Http\Controllers\Api\EightballProxyController::class, 'getAgentsByLocationAndService']);
-    
+    Route::get('/latepoint/agents/location/{locationId}/service/{serviceId}', [App\Http\Controllers\Api\EightballProxyController::class, 'getAgentsByLocationAndService']);
+
     // Calendar and Availability
-    Route::get('/calendar', [App\Http\Controllers\Api\EightballProxyController::class, 'getCalendarAvailability']);
-    Route::get('/time-slots-auto', [App\Http\Controllers\Api\EightballProxyController::class, 'getTimeSlots']);
-    Route::get('/availability', [App\Http\Controllers\Api\EightballProxyController::class, 'checkAvailability']);
-    
+    Route::get('/latepoint/calendar', [App\Http\Controllers\Api\EightballProxyController::class, 'getCalendarAvailability']);
+    Route::get('/latepoint/time-slots-auto', [App\Http\Controllers\Api\EightballProxyController::class, 'getTimeSlots']);
+    Route::get('/latepoint/availability', [App\Http\Controllers\Api\EightballProxyController::class, 'checkAvailability']);
+
     // Bookings
-    Route::post('/bookings', [App\Http\Controllers\Api\EightballProxyController::class, 'createBooking'])->middleware('throttle:5,1');
-    Route::get('/bookings/{id}', [App\Http\Controllers\Api\EightballProxyController::class, 'getBooking']);
-    
+    Route::post('/latepoint/bookings', [App\Http\Controllers\Api\EightballProxyController::class, 'createBooking'])->middleware('throttle:5,1');
+    Route::get('/latepoint/bookings/{id}', [App\Http\Controllers\Api\EightballProxyController::class, 'getBooking']);
+
     // Location Mappings
     Route::get('/location-mappings', [App\Http\Controllers\Api\EightballProxyController::class, 'getLocationMappings']);
-    
+
     // Shopify Services by Product Type
     Route::get('/shopify-services', [App\Http\Controllers\Api\EightballProxyController::class, 'getShopifyServicesByProductType']);
 });
