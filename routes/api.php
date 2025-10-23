@@ -1,5 +1,4 @@
 <?php
-
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +25,7 @@ Route::get('/availability', [App\Http\Controllers\Api\AvailabilityController::cl
 Route::get('/blackout/{id}', [App\Http\Controllers\BlackoutController::class, 'show']);
 Route::post('/bookings', [App\Http\Controllers\Api\BookingsController::class, 'store'])->middleware('throttle:5,1');
 Route::get('/bookings/{id}', [App\Http\Controllers\Api\BookingsController::class, 'show']);
+
 
 // EightBall Proxy Routes for React App (No Database Required)
 Route::prefix('eightball')->middleware('cors')->group(function () {
