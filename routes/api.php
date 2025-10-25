@@ -57,6 +57,9 @@ Route::prefix('eightball')->middleware('cors')->group(function () {
     Route::get('/shopify-services', [App\Http\Controllers\Api\EightballProxyController::class, 'getShopifyServicesByProductType']);
 });
 
+// Judge.me Review API Routes
+Route::get('/judgeme/reviews', [App\Http\Controllers\Api\JudgemeReviewController::class, 'getReviews']);
+
 // API Documentation
 Route::get('/docs', function () {
     return view('api.docs');
