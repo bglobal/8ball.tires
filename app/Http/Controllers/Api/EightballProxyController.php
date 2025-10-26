@@ -234,12 +234,13 @@ class EightballProxyController extends Controller
                 'service_id', 'agent_id', 'location_id', 'start_date', 'start_time',
                 'customer', 'status', 'send_confirmation',
                 'product_title', 'product_price', 'product_variant_id',
-                'service_name', 'service_variant_id', 'service_price'
+                'service_name', 'service_variant_id', 'service_price','upsells'
             ];
 
             // Capture only allowed fields
             $filteredData = $request->only($allowedFields);
             $filteredData['customer'] = $request->input('customer'); // ensure nested object
+            $filteredData['upsells'] = $request->input('upsells'); // ensure nested object
 
             Log::info('Filtered Booking Payload:', $filteredData);
 
