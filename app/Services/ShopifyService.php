@@ -236,6 +236,7 @@ class ShopifyService
                                         product {
                                             id
                                             title
+                                            tags
                                         }
                                     }
                                     originalUnitPriceSet {
@@ -757,6 +758,19 @@ class ShopifyService
                     $item = $itemEdge['node'] ?? null;
                     if (!$item) continue;
                     
+                    // Get product tags
+                    $productTags = $item['variant']['product']['tags'] ?? [];
+                    
+                    // Skip products with "services" tag (case-insensitive)
+                    $hasServicesTag = false;
+                    foreach ($productTags as $tag) {
+                        if (strtolower($tag) === 'services') {
+                            $hasServicesTag = true;
+                            break;
+                        }
+                    }
+                    if ($hasServicesTag) continue;
+                    
                     // Extract product ID from GraphQL ID (gid://shopify/Product/123456789)
                     $productGid = $item['variant']['product']['id'] ?? null;
                     if (!$productGid) continue;
@@ -775,6 +789,7 @@ class ShopifyService
                             'variant_title' => $item['variant']['title'] ?? null,
                             'quantity' => 0,
                             'total_revenue' => 0,
+                            'tags' => $productTags,
                         ];
                     }
                     
@@ -793,7 +808,7 @@ class ShopifyService
         } catch (\Exception $e) {
             Log::error('Failed to fetch frequently bought products from Shopify', [
                 'months' => $months,
-                'shop' => $shop ?? $this->config['shop'] ?? 'not set',
+                'shop' => $this->config['shop'] ?? 'not set',
                 'error' => $e->getMessage()
             ]);
             throw $e;
