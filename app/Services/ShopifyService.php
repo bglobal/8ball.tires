@@ -210,6 +210,52 @@ class ShopifyService
         }
     ';
 
+    public const ORDERS_QUERY = '
+        query getOrders($first: Int!, $query: String) {
+            orders(first: $first, query: $query) {
+                edges {
+                    node {
+                        id
+                        name
+                        createdAt
+                        totalPriceSet {
+                            shopMoney {
+                                amount
+                                currencyCode
+                            }
+                        }
+                        lineItems(first: 100) {
+                            edges {
+                                node {
+                                    id
+                                    title
+                                    quantity
+                                    variant {
+                                        id
+                                        title
+                                        product {
+                                            id
+                                            title
+                                        }
+                                    }
+                                    originalUnitPriceSet {
+                                        shopMoney {
+                                            amount
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                pageInfo {
+                    hasNextPage
+                    endCursor
+                }
+            }
+        }
+    ';
+
     /**
      * Execute GraphQL query with retry logic using direct cURL
      */
@@ -308,7 +354,7 @@ class ShopifyService
     /**
      * Execute REST API call with retry logic using direct cURL
      */
-    private function executeRestCall(string $method, string $path, array $data = []): array
+    protected function executeRestCall(string $method, string $path, array $data = []): array
     {
         $maxRetries = $this->config['rate_limit']['max_retries'];
         $retryAfter = $this->config['rate_limit']['retry_after'];
@@ -324,6 +370,8 @@ class ShopifyService
                     'Content-Type: application/json',
                     'X-Shopify-Access-Token: ' . $this->config['token']
                 ]);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 
                 if (strtoupper($method) === 'POST') {
                     curl_setopt($ch, CURLOPT_POST, true);
@@ -332,10 +380,11 @@ class ShopifyService
 
                 $response = curl_exec($ch);
                 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlError = curl_error($ch);
                 curl_close($ch);
 
-                if ($response === false) {
-                    throw new ShopifyException('cURL error occurred');
+                if ($response === false || !empty($curlError)) {
+                    throw new ShopifyException('cURL error occurred: ' . $curlError);
                 }
 
                 $decodedResponse = json_decode($response, true);
@@ -362,7 +411,10 @@ class ShopifyService
             } catch (ShopifyException $e) {
                 Log::error('Shopify service error', [
                     'error' => $e->getMessage(),
-                    'attempt' => $attempt
+                    'attempt' => $attempt,
+                    'method' => $method,
+                    'path' => $path,
+                    'url' => $url ?? 'unknown'
                 ]);
 
                 if ($attempt === $maxRetries) {
@@ -660,5 +712,91 @@ class ShopifyService
     public function getProducts(int $limit = 100): array
     {
         return $this->getAllProductsWithVariants($limit);
+    }
+
+    /**
+     * Get frequently bought products based on order history using GraphQL
+     * 
+     * @param int $months Number of months to look back (default: 3)
+     * @return array Array of products sorted by quantity sold (descending)
+     */
+    public function getFrequentlyBoughtProducts(int $months = 3): array
+    {
+        try {
+            // Use credentials from .env
+            $shopDomain = $this->config['shop'];
+            $accessToken = $this->config['token'];
+            $version = $this->config['api_version'];
+            
+            // Check if credentials are available
+            if (!$shopDomain || !$accessToken) {
+                throw new ShopifyException('Shopify credentials not found in .env file. Please add SHOPIFY_SHOP_DOMAIN and SHOPIFY_ADMIN_TOKEN to .env.');
+            }
+            
+            // Build query for orders created in the last X months
+            $since = date('c', strtotime("-{$months} months"));
+            $queryString = "created_at:>='{$since}'";
+            
+            // Fetch orders using GraphQL
+            $response = $this->executeGraphQLQuery(self::ORDERS_QUERY, [
+                'first' => 250,
+                'query' => $queryString
+            ]);
+            
+            $orders = $response['data']['orders']['edges'] ?? [];
+            
+            $productSales = [];
+            
+            foreach ($orders as $orderEdge) {
+                $order = $orderEdge['node'] ?? null;
+                if (!$order) continue;
+                
+                $lineItems = $order['lineItems']['edges'] ?? [];
+                
+                foreach ($lineItems as $itemEdge) {
+                    $item = $itemEdge['node'] ?? null;
+                    if (!$item) continue;
+                    
+                    // Extract product ID from GraphQL ID (gid://shopify/Product/123456789)
+                    $productGid = $item['variant']['product']['id'] ?? null;
+                    if (!$productGid) continue;
+                    
+                    $productId = basename($productGid); // Extract numeric ID
+                    $variantGid = $item['variant']['id'] ?? null;
+                    $variantId = $variantGid ? basename($variantGid) : null;
+                    
+                    if (!isset($productSales[$productId])) {
+                        $productSales[$productId] = [
+                            'product_id' => $productId,
+                            'product_gid' => $productGid,
+                            'title' => $item['variant']['product']['title'] ?? 'Unknown Product',
+                            'variant_id' => $variantId,
+                            'variant_gid' => $variantGid,
+                            'variant_title' => $item['variant']['title'] ?? null,
+                            'quantity' => 0,
+                            'total_revenue' => 0,
+                        ];
+                    }
+                    
+                    $quantity = $item['quantity'] ?? 0;
+                    $price = floatval($item['originalUnitPriceSet']['shopMoney']['amount'] ?? 0);
+                    
+                    $productSales[$productId]['quantity'] += $quantity;
+                    $productSales[$productId]['total_revenue'] += $price * $quantity;
+                }
+            }
+            
+            // Sort by quantity sold (descending)
+            uasort($productSales, fn($a, $b) => $b['quantity'] <=> $a['quantity']);
+            
+            return array_values($productSales);
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch frequently bought products from Shopify', [
+                'months' => $months,
+                'shop' => $shop ?? $this->config['shop'] ?? 'not set',
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
     }
 }
