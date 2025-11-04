@@ -233,10 +233,19 @@ class ShopifyService
                                     variant {
                                         id
                                         title
+                                        price
+                                        compareAtPrice
                                         product {
                                             id
                                             title
+                                            handle
+                                            vendor
                                             tags
+                                            featuredImage {
+                                                id
+                                                url
+                                                altText
+                                            }
                                         }
                                     }
                                     originalUnitPriceSet {
@@ -715,53 +724,96 @@ class ShopifyService
         return $this->getAllProductsWithVariants($limit);
     }
 
+
     /**
-     * Get frequently bought products based on order history using GraphQL
-     * 
-     * @param int $months Number of months to look back (default: 3)
-     * @return array Array of products sorted by quantity sold (descending)
+     * Get frequently bought together products for a specific product
+     *
+     * Logic:
+     * 1. Find all orders containing the given product
+     * 2. Collect all other products from those same orders
+     * 3. Count how many times each product appears together
+     * 4. Return products sorted by frequency (excluding services tag)
+     *
+     * @param string $productId Product ID (can be numeric ID or GraphQL GID)
+     * @param int $limit Maximum number of recommendations (default: 5)
+     * @return array Array of complementary products sorted by frequency
      */
-    public function getFrequentlyBoughtProducts(int $months = 3): array
+    public function getFrequentlyBoughtTogether(string $productId, int $limit = 5): array
     {
         try {
             // Use credentials from .env
             $shopDomain = $this->config['shop'];
             $accessToken = $this->config['token'];
             $version = $this->config['api_version'];
-            
-            // Check if credentials are available
+
             if (!$shopDomain || !$accessToken) {
-                throw new ShopifyException('Shopify credentials not found in .env file. Please add SHOPIFY_SHOP_DOMAIN and SHOPIFY_ADMIN_TOKEN to .env.');
+                throw new ShopifyException('Shopify credentials not found in .env file.');
             }
-            
-            // Build query for orders created in the last X months
-            $since = date('c', strtotime("-{$months} months"));
-            $queryString = "created_at:>='{$since}'";
-            
-            // Fetch orders using GraphQL
+
+            // Normalize product ID (handle both numeric and GraphQL GID)
+            $targetProductId = $productId;
+            if (strpos($productId, 'gid://') === 0) {
+                $targetProductId = basename($productId);
+            }
+
+            // Fetch all orders without time restriction
             $response = $this->executeGraphQLQuery(self::ORDERS_QUERY, [
                 'first' => 250,
-                'query' => $queryString
+                'query' => null
             ]);
-            
+
             $orders = $response['data']['orders']['edges'] ?? [];
-            
-            $productSales = [];
-            
+
+            // Step 1: Find orders containing the target product
+            $ordersWithTargetProduct = [];
+
             foreach ($orders as $orderEdge) {
                 $order = $orderEdge['node'] ?? null;
                 if (!$order) continue;
-                
+
                 $lineItems = $order['lineItems']['edges'] ?? [];
-                
+                $hasTargetProduct = false;
+
+                // Check if this order contains the target product
                 foreach ($lineItems as $itemEdge) {
                     $item = $itemEdge['node'] ?? null;
                     if (!$item) continue;
-                    
+
+                    $productGid = $item['variant']['product']['id'] ?? null;
+                    if (!$productGid) continue;
+
+                    $itemProductId = basename($productGid);
+
+                    if ($itemProductId === $targetProductId) {
+                        $hasTargetProduct = true;
+                        break;
+                    }
+                }
+
+                if ($hasTargetProduct) {
+                    $ordersWithTargetProduct[] = $order;
+                }
+            }
+
+            // Step 2: Collect all other products from those orders (complementary products)
+            // Logic: For each order containing target product, find which other products
+            // were purchased in the SAME order, and count how many orders had that combination
+            $complementaryProducts = [];
+
+            foreach ($ordersWithTargetProduct as $order) {
+                $lineItems = $order['lineItems']['edges'] ?? [];
+
+                // Track unique products in this order (to count once per order)
+                $productsInThisOrder = [];
+
+                foreach ($lineItems as $itemEdge) {
+                    $item = $itemEdge['node'] ?? null;
+                    if (!$item) continue;
+
                     // Get product tags
                     $productTags = $item['variant']['product']['tags'] ?? [];
-                    
-                    // Skip products with "services" tag (case-insensitive)
+
+                    // Skip products with "services" tag
                     $hasServicesTag = false;
                     foreach ($productTags as $tag) {
                         if (strtolower($tag) === 'services') {
@@ -770,48 +822,111 @@ class ShopifyService
                         }
                     }
                     if ($hasServicesTag) continue;
-                    
-                    // Extract product ID from GraphQL ID (gid://shopify/Product/123456789)
+
+                    // Extract product ID
                     $productGid = $item['variant']['product']['id'] ?? null;
                     if (!$productGid) continue;
-                    
-                    $productId = basename($productGid); // Extract numeric ID
-                    $variantGid = $item['variant']['id'] ?? null;
-                    $variantId = $variantGid ? basename($variantGid) : null;
-                    
-                    if (!isset($productSales[$productId])) {
-                        $productSales[$productId] = [
-                            'product_id' => $productId,
+
+                    $itemProductId = basename($productGid);
+
+                    // Skip the target product itself
+                    if ($itemProductId === $targetProductId) continue;
+
+                    // Track this product in current order
+                    if (!isset($productsInThisOrder[$itemProductId])) {
+                        $productHandle = $item['variant']['product']['handle'] ?? '';
+                        $featuredImage = $item['variant']['product']['featuredImage'] ?? null;
+                        $variantPrice = $item['variant']['price'] ?? '0.00';
+                        $compareAtPrice = $item['variant']['compareAtPrice'] ?? null;
+
+                        // Build product URL
+                        $productUrl = $productHandle ? "https://{$shopDomain}/products/{$productHandle}" : null;
+
+                        $productsInThisOrder[$itemProductId] = [
+                            'product_id' => $itemProductId,
                             'product_gid' => $productGid,
                             'title' => $item['variant']['product']['title'] ?? 'Unknown Product',
-                            'variant_id' => $variantId,
-                            'variant_gid' => $variantGid,
+                            'handle' => $productHandle,
+                            'url' => $productUrl,
+                            'price' => $variantPrice,
+                            'compare_at_price' => $compareAtPrice,
+                            'vendor' => $item['variant']['product']['vendor'] ?? '',
+                            'variant_id' => basename($item['variant']['id'] ?? ''),
+                            'variant_gid' => $item['variant']['id'] ?? null,
                             'variant_title' => $item['variant']['title'] ?? null,
-                            'quantity' => 0,
-                            'total_revenue' => 0,
+                            'featured_image' => $featuredImage ? [
+                                'id' => $featuredImage['id'] ?? null,
+                                'url' => $featuredImage['url'] ?? null,
+                                'alt_text' => $featuredImage['altText'] ?? null,
+                            ] : null,
                             'tags' => $productTags,
+                            'quantity' => 0,
+                            'revenue' => 0.0,
                         ];
                     }
-                    
+
+                    // Accumulate quantity and revenue for this product in this order
                     $quantity = $item['quantity'] ?? 0;
                     $price = floatval($item['originalUnitPriceSet']['shopMoney']['amount'] ?? 0);
-                    
-                    $productSales[$productId]['quantity'] += $quantity;
-                    $productSales[$productId]['total_revenue'] += $price * $quantity;
+
+                    $productsInThisOrder[$itemProductId]['quantity'] += $quantity;
+                    $productsInThisOrder[$itemProductId]['revenue'] += $price * $quantity;
+                }
+
+                // Now process each unique product found in this order
+                foreach ($productsInThisOrder as $itemProductId => $productData) {
+                    // Initialize complementary product if not exists
+                    if (!isset($complementaryProducts[$itemProductId])) {
+                        $complementaryProducts[$itemProductId] = [
+                            'product_id' => $productData['product_id'],
+                            'product_gid' => $productData['product_gid'],
+                            'title' => $productData['title'],
+                            'handle' => $productData['handle'] ?? '',
+                            'url' => $productData['url'] ?? null,
+                            'price' => $productData['price'] ?? '0.00',
+                            'compare_at_price' => $productData['compare_at_price'] ?? null,
+                            'vendor' => $productData['vendor'] ?? '',
+                            'variant_id' => $productData['variant_id'],
+                            'variant_gid' => $productData['variant_gid'],
+                            'variant_title' => $productData['variant_title'],
+                            'featured_image' => $productData['featured_image'] ?? null,
+                            'times_bought_together' => 0, // Count of orders where both appeared
+                            'total_quantity' => 0,
+                            'total_revenue' => 0.0,
+                            'tags' => $productData['tags'],
+                        ];
+                    }
+
+                    // Count this order (once per order, not per line item)
+                    $complementaryProducts[$itemProductId]['times_bought_together']++;
+
+                    // Add quantities and revenue from this order
+                    $complementaryProducts[$itemProductId]['total_quantity'] += $productData['quantity'];
+                    $complementaryProducts[$itemProductId]['total_revenue'] += $productData['revenue'];
                 }
             }
+
+            // Step 3: Sort by frequency (times_bought_together)
+            uasort($complementaryProducts, function($a, $b) {
+                // Primary sort: times bought together (descending)
+                if ($b['times_bought_together'] !== $a['times_bought_together']) {
+                    return $b['times_bought_together'] <=> $a['times_bought_together'];
+                }
+                // Secondary sort: total quantity (descending)
+                return $b['total_quantity'] <=> $a['total_quantity'];
+            });
+
+            // Step 4: Limit results and return
+            $result = array_values($complementaryProducts);
+            return array_slice($result, 0, $limit);
             
-            // Sort by quantity sold (descending)
-            uasort($productSales, fn($a, $b) => $b['quantity'] <=> $a['quantity']);
-            
-            return array_values($productSales);
         } catch (\Exception $e) {
-            Log::error('Failed to fetch frequently bought products from Shopify', [
-                'months' => $months,
-                'shop' => $this->config['shop'] ?? 'not set',
+            Log::error('Failed to fetch frequently bought together products', [
+                'product_id' => $productId,
                 'error' => $e->getMessage()
             ]);
             throw $e;
         }
     }
+
 }

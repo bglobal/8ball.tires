@@ -62,6 +62,7 @@ Route::get('/judgeme/reviews', [App\Http\Controllers\Api\JudgemeReviewController
 
 // Shopify Custom App Routes
 Route::get('/shopify/frequently-bought-products', [App\Http\Controllers\Api\ShopifyCustomAppController::class, 'frequentlyBoughtProducts']);
+Route::get('/shopify/frequently-bought-together/{productId}', [App\Http\Controllers\Api\ShopifyCustomAppController::class, 'frequentlyBoughtTogether']);
 
 // API Documentation
 Route::get('/docs', function () {

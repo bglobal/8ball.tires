@@ -68,4 +68,50 @@ class ShopifyCustomAppController
             ], 500);
         }
     }
+
+    /**
+     * Get frequently bought together products for a specific product
+     * 
+     * @param Request $request
+     * @param string $productId Product ID
+     * @return JsonResponse
+     */
+    public function frequentlyBoughtTogether(Request $request, string $productId): JsonResponse
+    {
+        try {
+            // Get parameters from request
+            $limit = $request->query('limit', 5);
+            
+            // Validate limit parameter
+            if (!is_numeric($limit) || $limit < 1 || $limit > 20) {
+                return response()->json([
+                    'error' => 'Invalid limit parameter. Must be between 1 and 20.'
+                ], 400);
+            }
+            
+            $complementaryProducts = $this->shopifyService->getFrequentlyBoughtTogether(
+                $productId,
+                (int) $limit
+            );
+            
+            return response()->json([
+                'success' => true,
+                'product_id' => $productId,
+                'limit' => (int) $limit,
+                'complementary_products_count' => count($complementaryProducts),
+                'complementary_products' => $complementaryProducts
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching frequently bought together products', [
+                'product_id' => $productId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'error' => 'Failed to fetch frequently bought together products',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
